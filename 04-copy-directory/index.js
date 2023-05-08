@@ -21,7 +21,6 @@ function copyDirectory() {
               if (err) {
                 throw err;
               }
-              console.log(`файл ${interCopyFolder} удален`);
             });
           }
         });
@@ -36,8 +35,6 @@ function copyDirectory() {
         fs.copyFile(originFile, copyFile, (err) => {
           if (err) {
             console.error(err);
-          } else {
-            console.log(`Файл ${file} успешно скопирован в ${copyFile}!`);
           }
         });
       }
