@@ -4,69 +4,56 @@ const projectFolder = path.join(__dirname, "project-dist");
 const copyFolder = path.join(__dirname, "project-dist", "assets");
 const originFolder = path.join(__dirname, "assets");
 
-
 async function deleteFolder() {
+  // создаем папку если она еще не создана
   try {
     await fs.access(projectFolder);
   } catch {
     await fs.mkdir(projectFolder);
   }
 
+  // удаляем каждый файл
   const files = await fs.readdir(projectFolder);
   const unlinkPromises = files.map((file) => {
     const interProjectFolder = path.join(projectFolder, file);
-    return fs.unlink(interProjectFolder);
+    return fs.unlink(interProjectFolder, { recursive: true });
   });
 
   await Promise.all(unlinkPromises);
 }
 
+// создаем пустые файлы
 function createFiles() {
-   return Promise.all([
-     fs.writeFile(path.join(projectFolder, "style.css"), ""),
-     fs.writeFile(path.join(projectFolder, "index.html"), ""),
-   ]);
+  return Promise.all([
+    fs.writeFile(path.join(projectFolder, "style.css"), ""),
+    fs.writeFile(path.join(projectFolder, "index.html"), ""),
+  ]);
 }
 
-function copyDirectory() {
-  fs.promises
-    .access(copyFolder)
-    .catch(() => fs.promises.mkdir(copyFolder))
-    .then(() => fs.promises.readdir(copyFolder))
-    .then((files) => {
-      for (file of files) {
-        const interCopyFolder = path.join(copyFolder, file);
-        fs.stat(interCopyFolder, (err, stats) => {
-          if (err) {
-            console.log(err);
-            return;
-          }
-          if (stats.isFile()) {
-            fs.unlink(interCopyFolder, (err) => {
-              if (err) {
-                throw err;
-              }
-            });
-          }
-        });
-      }
-    })
-    .then(() => fs.promises.readdir(originFolder))
-    .then((files) => {
-      for (file of files) {
-        let originFile = path.join(originFolder, file);
-        let copyFile = path.join(copyFolder, file);
+async function copyDirectory(originFolder, copyFolder) {
+  // Создаем папку назначения, если она еще не создана
+  await fs.mkdir(copyFolder, { recursive: true });
 
-        fs.copyFile(originFile, copyFile, (err) => {
-          if (err) {
-            console.error(err);
-          }
-        });
-      }
-    });
+  // Получаем список файлов и папок в директории
+  const files = await fs.readdir(originFolder);
+
+  // Рекурсивно копируем каждый файл и папку
+  for (const file of files) {
+    const srcPath = path.join(originFolder, file);
+    const destPath = path.join(copyFolder, file);
+
+    const stat = await fs.stat(srcPath);
+
+    if (stat.isDirectory()) {
+      await copyDirectory(srcPath, destPath);
+    } else {
+      await fs.copyFile(srcPath, destPath);
+    }
+  }
 }
 
 deleteFolder()
   .then(createFiles)
+  .then(()=>copyDirectory(originFolder, copyFolder))
   .then(() => console.log("Done"))
   .catch((err) => console.error(err));
