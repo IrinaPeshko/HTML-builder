@@ -3,6 +3,7 @@ const fs = require("fs/promises");
 const projectFolder = path.join(__dirname, "project-dist");
 const copyFolder = path.join(__dirname, "project-dist", "assets");
 const originFolder = path.join(__dirname, "assets");
+const originHTML = path.join(__dirname, "template.HTML");
 
 async function deleteFolder() {
   // создаем папку если она еще не создана
@@ -16,7 +17,7 @@ async function deleteFolder() {
   const files = await fs.readdir(projectFolder);
   const unlinkPromises = files.map((file) => {
     const interProjectFolder = path.join(projectFolder, file);
-    return fs.unlink(interProjectFolder, { recursive: true });
+    return fs.rm(interProjectFolder, { recursive: true });
   });
 
   await Promise.all(unlinkPromises);
@@ -52,8 +53,15 @@ async function copyDirectory(originFolder, copyFolder) {
   }
 }
 
+
+function createHTML (){
+  console.log(originHTML);
+  const readableStream = fs.createReadStream(txt, "utf-8");
+}
+
 deleteFolder()
   .then(createFiles)
   .then(()=>copyDirectory(originFolder, copyFolder))
+  // .then(createHTML)
   .then(() => console.log("Done"))
   .catch((err) => console.error(err));
