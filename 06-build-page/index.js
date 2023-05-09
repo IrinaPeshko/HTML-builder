@@ -3,7 +3,8 @@ const fs = require("fs/promises");
 const projectFolder = path.join(__dirname, "project-dist");
 const copyFolder = path.join(__dirname, "project-dist", "assets");
 const originFolder = path.join(__dirname, "assets");
-const originHTML = path.join(__dirname, "template.HTML");
+const originHTML = path.join(__dirname, "template.html");
+const copyHTML = path.join(__dirname, "project-dist", "index.html");
 
 async function deleteFolder() {
   // создаем папку если она еще не создана
@@ -53,15 +54,17 @@ async function copyDirectory(originFolder, copyFolder) {
   }
 }
 
-
-function createHTML (){
-  console.log(originHTML);
-  const readableStream = fs.createReadStream(txt, "utf-8");
-}
+ function createHTML() {
+   return fs
+     .readFile(originHTML, "utf8")
+     .then((data) => fs.appendFile(copyHTML, data))
+     .then(() => console.log("The text was appended to the file!"))
+     .catch((err) => console.error(err));
+ }
 
 deleteFolder()
   .then(createFiles)
-  .then(()=>copyDirectory(originFolder, copyFolder))
-  // .then(createHTML)
+  .then(() => copyDirectory(originFolder, copyFolder))
+  .then(() => createHTML())
   .then(() => console.log("Done"))
   .catch((err) => console.error(err));
