@@ -59,35 +59,34 @@ async function copyDirectory(originFolder, copyFolder) {
 
 async function createHTML() {
   try {
-    const template = await fsPromises.readFile(originHTML, "utf8");
+    let template = await fsPromises.readFile(originHTML, "utf8");
 
     const regex = /\{\{(\w+)\}\}/g;
     let match;
 
     // Создаем массив Promise, чтобы асинхронно читать содержимое каждого компонента.
-    const promises = [];
     while ((match = regex.exec(template)) !== null) {
-      const componentName = match[1];
-      const componentPath = path.join(componentsHTML, `${componentName}.html`);
-      promises.push(fsPromises.readFile(componentPath, { encoding: "utf8" }));
+      const fileName = match[1];
+      const componentPath = path.join(componentsHTML, `${fileName}.html`);
+      fsPromises.readFile(componentPath, {
+        encoding: "utf8",
+      }).then(file =>{
+       fileName
+       file
+
+        fs.readdir(componentsHTML, (err, files) => {
+          if (err) {
+            console.error(err);
+            return;
+          }
+            const componentName = `{{${fileName}}}`;
+            template = template.replace(componentName, file);
+
+          // Сохраняем полученный HTML в файл `project-dist/index.html`.
+          fsPromises.writeFile(copyHTML, template, { encoding: "utf8" });
+        });
+      });
     }
-
-    // Ждем завершения всех Promise и заменяем шаблонные теги на соответствующие компоненты.
-    const components = await Promise.all(promises);
-    let output = template;
-    fs.readdir(componentsHTML, (err, files) => {
-      if (err) {
-        console.error(err);
-        return;
-      }
-      for (i = 0; i < files.length; i++) {
-        const componentName = `{{${files[i].replace(".html", "")}}}`;
-        output = output.replace(componentName, components[i]);
-      }
-
-      // Сохраняем полученный HTML в файл `project-dist/index.html`.
-      fsPromises.writeFile(copyHTML, output, { encoding: "utf8" });
-    });
   } catch (err) {
     console.error(err);
   }
