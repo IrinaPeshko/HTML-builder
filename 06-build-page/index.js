@@ -1,24 +1,27 @@
 const path = require("path");
-const fs = require("fs/promises");
+const fsPromises = require("fs/promises");
+const fs = require("fs");
 const projectFolder = path.join(__dirname, "project-dist");
 const copyFolder = path.join(__dirname, "project-dist", "assets");
 const originFolder = path.join(__dirname, "assets");
 const originHTML = path.join(__dirname, "template.html");
 const copyHTML = path.join(__dirname, "project-dist", "index.html");
+const componentsHTML = path.join(__dirname, "components");
+const styles = path.join(__dirname, "styles");
 
 async function deleteFolder() {
   // создаем папку если она еще не создана
   try {
-    await fs.access(projectFolder);
+    await fsPromises.access(projectFolder);
   } catch {
-    await fs.mkdir(projectFolder);
+    await fsPromises.mkdir(projectFolder);
   }
 
   // удаляем каждый файл
-  const files = await fs.readdir(projectFolder);
+  const files = await fsPromises.readdir(projectFolder);
   const unlinkPromises = files.map((file) => {
     const interProjectFolder = path.join(projectFolder, file);
-    return fs.rm(interProjectFolder, { recursive: true });
+    return fsPromises.rm(interProjectFolder, { recursive: true });
   });
 
   await Promise.all(unlinkPromises);
@@ -27,47 +30,113 @@ async function deleteFolder() {
 // создаем пустые файлы
 function createFiles() {
   return Promise.all([
-    fs.writeFile(path.join(projectFolder, "style.css"), ""),
-    fs.writeFile(path.join(projectFolder, "index.html"), ""),
+    fsPromises.writeFile(path.join(projectFolder, "style.css"), ""),
+    fsPromises.writeFile(path.join(projectFolder, "index.html"), ""),
   ]);
 }
 
 async function copyDirectory(originFolder, copyFolder) {
   // Создаем папку назначения, если она еще не создана
-  await fs.mkdir(copyFolder, { recursive: true });
+  await fsPromises.mkdir(copyFolder, { recursive: true });
 
   // Получаем список файлов и папок в директории
-  const files = await fs.readdir(originFolder);
+  const files = await fsPromises.readdir(originFolder);
 
   // Рекурсивно копируем каждый файл и папку
   for (const file of files) {
     const srcPath = path.join(originFolder, file);
     const destPath = path.join(copyFolder, file);
 
-    const stat = await fs.stat(srcPath);
+    const stat = await fsPromises.stat(srcPath);
 
     if (stat.isDirectory()) {
       await copyDirectory(srcPath, destPath);
     } else {
-      await fs.copyFile(srcPath, destPath);
+      await fsPromises.copyFile(srcPath, destPath);
     }
   }
 }
 
- function createHTML() {
-   return fs
-     .readFile(originHTML, "utf8")
-     .then((data) => {
-      const newData = data.replace(/{{([^}]+)}}/g, '<$1>');
-     console.log(newData)
-      fs.appendFile(copyHTML, newData)})
-     .then(() => console.log("The text was appended to the file!"))
-     .catch((err) => console.error(err));
- }
+  async function createHTML() {
+    try {
+      const template = await fsPromises.readFile(originHTML, "utf8");
+
+      const regex = /\{\{(\w+)\}\}/g;
+      let match;
+
+      // Создаем массив Promise, чтобы асинхронно читать содержимое каждого компонента.
+      const promises = [];
+      while ((match = regex.exec(template)) !== null) {
+        const componentName = match[1];
+        const componentPath = path.join(
+          componentsHTML,
+          `${componentName}.html`
+        );
+        promises.push(fsPromises.readFile(componentPath, { encoding: "utf8" }));
+      }
+
+      // Ждем завершения всех Promise и заменяем шаблонные теги на соответствующие компоненты.
+      const components = await Promise.all(promises);
+      let output = template;
+      for (let i = 0; i < components.length; i++) {
+        output = output.replace(regex, components[i]);
+      }
+
+      // Сохраняем полученный HTML в файл `project-dist/index.html`.
+      await fsPromises.writeFile(copyHTML, output, { encoding: "utf8" });
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+
+function createCss() {
+  const resultArr = [];
+  return fsPromises
+    .readdir(styles, "utf8")
+    .then((files) => {
+      const promises = [];
+      for (file of files) {
+        const stylesFiles = path.join(styles, file);
+        const promise = new Promise((resolve, reject) => {
+          if (path.extname(stylesFiles) === ".css") {
+            const readableStream = fs.createReadStream(stylesFiles);
+            let data = "";
+            readableStream.on("data", (chunk) => {
+              data += chunk;
+            });
+            readableStream.on("end", () => {
+              resolve(data);
+            });
+          } else {
+            resolve();
+          }
+        });
+        promises.push(promise);
+      }
+      return Promise.all(promises);
+    })
+    .then((dataArr) => {
+      dataArr.forEach((data) => {
+        if (data) {
+          resultArr.push(data);
+        }
+      });
+      fs.appendFile(
+        path.join(path.join(__dirname, "project-dist", "style.css")),
+        `${resultArr.join("\n")}\n`,
+        (err) => {
+          if (err) throw err;
+        }
+      );
+    })
+    .catch((err) => console.error(err));
+}
 
 deleteFolder()
   .then(createFiles)
   .then(() => copyDirectory(originFolder, copyFolder))
   .then(() => createHTML())
-  .then(() => console.log("Done"))
+  .then(() => createCss())
+  .then(() => console.log("task completed"))
   .catch((err) => console.error(err));
