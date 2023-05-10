@@ -57,38 +57,41 @@ async function copyDirectory(originFolder, copyFolder) {
   }
 }
 
-  async function createHTML() {
-    try {
-      const template = await fsPromises.readFile(originHTML, "utf8");
+async function createHTML() {
+  try {
+    const template = await fsPromises.readFile(originHTML, "utf8");
 
-      const regex = /\{\{(\w+)\}\}/g;
-      let match;
+    const regex = /\{\{(\w+)\}\}/g;
+    let match;
 
-      // Создаем массив Promise, чтобы асинхронно читать содержимое каждого компонента.
-      const promises = [];
-      while ((match = regex.exec(template)) !== null) {
-        const componentName = match[1];
-        const componentPath = path.join(
-          componentsHTML,
-          `${componentName}.html`
-        );
-        promises.push(fsPromises.readFile(componentPath, { encoding: "utf8" }));
+    // Создаем массив Promise, чтобы асинхронно читать содержимое каждого компонента.
+    const promises = [];
+    while ((match = regex.exec(template)) !== null) {
+      const componentName = match[1];
+      const componentPath = path.join(componentsHTML, `${componentName}.html`);
+      promises.push(fsPromises.readFile(componentPath, { encoding: "utf8" }));
+    }
+
+    // Ждем завершения всех Promise и заменяем шаблонные теги на соответствующие компоненты.
+    const components = await Promise.all(promises);
+    let output = template;
+    fs.readdir(componentsHTML, (err, files) => {
+      if (err) {
+        console.error(err);
+        return;
       }
-
-      // Ждем завершения всех Promise и заменяем шаблонные теги на соответствующие компоненты.
-      const components = await Promise.all(promises);
-      let output = template;
-      for (let i = 0; i < components.length; i++) {
-        output = output.replace(regex, components[i]);
+      for (i = 0; i < files.length; i++) {
+        const componentName = `{{${files[i].replace(".html", "")}}}`;
+        output = output.replace(componentName, components[i]);
       }
 
       // Сохраняем полученный HTML в файл `project-dist/index.html`.
-      await fsPromises.writeFile(copyHTML, output, { encoding: "utf8" });
-    } catch (err) {
-      console.error(err);
-    }
+      fsPromises.writeFile(copyHTML, output, { encoding: "utf8" });
+    });
+  } catch (err) {
+    console.error(err);
   }
-
+}
 
 function createCss() {
   const resultArr = [];
