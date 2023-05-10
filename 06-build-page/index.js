@@ -57,7 +57,10 @@ async function copyDirectory(originFolder, copyFolder) {
  function createHTML() {
    return fs
      .readFile(originHTML, "utf8")
-     .then((data) => fs.appendFile(copyHTML, data))
+     .then((data) => {
+      const newData = data.replace(/{{([^}]+)}}/g, '<$1>');
+     console.log(newData)
+      fs.appendFile(copyHTML, newData)})
      .then(() => console.log("The text was appended to the file!"))
      .catch((err) => console.error(err));
  }
